@@ -1,6 +1,8 @@
 <template>
   <section class="hero is-fullheight">
-    <div class="hero-head">Navigation bar</div>
+    <div class="hero-head">
+      <NavBar />
+    </div>
     <div class="hero-body">
       <div class="table container">
           <table class="table is-fullwidth">
@@ -43,7 +45,9 @@
 </template>
 
 <script>
+import NavBar from '../components/NavBar.vue'
 export default {
+  components: { NavBar },
   computed: {
     subtotalBasePrice () {
       return this.$store.getters.getSubtotalBasePrice

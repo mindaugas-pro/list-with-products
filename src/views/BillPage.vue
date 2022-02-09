@@ -17,7 +17,7 @@
 
           <tbody>
             <tr
-              v-for="(product) in productsLocalStorage"
+              v-for="(product) in products"
               :key="product.index"
               >
                 <td>{{ product.code }}</td>
@@ -58,12 +58,12 @@ export default {
   },
   data () {
     return {
-      productsLocalStorage: null,
+      products: null,
       taxValue: 0.21
     }
   },
   created () {
-    this.productsLocalStorage = JSON.parse(localStorage.getItem('products'))
+    this.products = JSON.parse(localStorage.getItem('products'))
   },
   methods: {
     back () {

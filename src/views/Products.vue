@@ -19,7 +19,7 @@
             </thead>
             <tbody>
               <tr
-                v-for="(product, index) in productsLocalStorage"
+                v-for="(product, index) in products"
                 :key="index"
                 >
                   <td>
@@ -98,7 +98,7 @@
                         <button class="button is-link">Submit</button>
                       </div>
                       <div class="control">
-                        <button class="button is-danger" @click='cancelNewLine()'>cancel</button>
+                        <button class="button is-danger" @click='cancelAddNewLine()'>cancel</button>
                       </div>
                     </div>
                   </td>
@@ -109,7 +109,7 @@
         </form>
 
         <section class="section" v-if="!isNewLine">
-          <button class="button is-link" v-on:click="$router.push('/billPage')">Next</button>
+          <button class="button is-link" v-on:click="next()">Next</button>
         </section>
 
       </div>
@@ -121,6 +121,7 @@
 <script>
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import { useField, useForm, useResetForm } from 'vee-validate'
 import { number, string } from 'yup'
 import NavBar from '../components/NavBar.vue'
@@ -128,11 +129,11 @@ import NavBar from '../components/NavBar.vue'
 export default {
     components: { NavBar },
     setup() {
-        let productsLocalStorage = ref([])
+        let products = ref([])
         let isNewLine = ref(false)
         let taxValue = ref(0.21)
         const store = useStore()
-
+        const router = useRouter()
         const subtotalBasePrice = computed({
             get: () => {
                 return store.getters.getSubtotalBasePrice
@@ -141,7 +142,6 @@ export default {
                 store.commit('SET_SUBTOTAL_BASE_PRICE', value)
             }
         })
-
         const subtotalTotalPrice = computed({
             get: () => {
                 return store.getters.getSubtotalTotalPrice
@@ -150,36 +150,11 @@ export default {
                 store.commit('SET_SUBTOTAL_TOTAL_PRICE', value)
             }
         })
-        
         const validationss = {
           code: number().required().min(3),
           name: string().required().min(3),
           basePrice: number().required()
         }
-
-        // const validations = {
-        //   code: value => {
-        //     if (value && value.trim()) {
-        //       return true;
-        //     }
-
-        //       return 'This field is required';
-        //     },
-        //   name: value => {
-        //     if (value && value.trim()) {
-        //       return true;
-        //     }
-
-        //     return 'This field is required';
-        //   },
-        //   basePrice: value => {
-        //     if (value && value.trim()) {
-        //       return true;
-        //     }
-
-        //     return 'This field is required';
-        //   },
-        // }
 
         const { handleSubmit } = useForm({
           validationSchema: validationss
@@ -189,8 +164,8 @@ export default {
           basePrice.value = parseFloat(basePrice.value.replace(',', '.').replace(' ', '')) // convert commas to dots to avoid NaN
           const totalPrice = countTax(basePrice.value)
           const product = { code: code.value, name: name.value, basePrice: basePrice.value, totalPrice: totalPrice }
-          productsLocalStorage.value.push(product)
-          localStorage.setItem('products', JSON.stringify(productsLocalStorage.value))
+          products.value.push(product)
+          localStorage.setItem('products', JSON.stringify(products.value))
           isNewLine.value = false
           code.value = ''
           name.value = ''
@@ -204,30 +179,37 @@ export default {
         
         const resetForm = useResetForm()
 
-        function cancelNewLine () {
+        function cancelAddNewLine () {
           resetForm(); // resets the form
           isNewLine.value = false
         }
 
+        function populateLocalStorageWithDummyData () {
+          const products = [
+            { code: '12345', name: 'T-shirt', basePrice: '14.78' },
+            { code: '54321', name: 'Cardigan', basePrice: '34.56' }
+            ]
+            localStorage.setItem('products', JSON.stringify(products))
+            localStorage.setItem('productEditIndex', null)
+        }
+
         function createLocalStorage () {
-          let tempLocalStorageArray = JSON.parse(localStorage.getItem('products'))
-            if (tempLocalStorageArray.length === 0) {
-                // console.log('func createLocalStorage if triggered')
-                const products = [
-                { code: '12345', name: 'T-shirt', basePrice: '14.78', totalPrice: null },
-                { code: '54321', name: 'Cardigan', basePrice: '34.56', totalPrice: null }
-                ]
-                localStorage.setItem('products', JSON.stringify(products))
-                localStorage.setItem('productEditIndex', null)
+          let products = localStorage.getItem('products')
+          let tempLocalStorageArr = JSON.parse(localStorage.getItem('products'))
+            if (!products && !tempLocalStorageArr) { // if localStorage is completely empty (or deleted), then it doesn't has any records, hence 'products' and 'tempLocalStorage' are equal to 'null'
+                populateLocalStorageWithDummyData()
+            } 
+            else if (Object.keys(tempLocalStorageArr).length === 0) { // if all items was removed from localStorage, then it has empty object named 'products', but object's length is 0.
+                populateLocalStorageWithDummyData()
             }
         }
 
-        function setProductsLocalStorage () {
-            productsLocalStorage.value = JSON.parse(localStorage.getItem('products'))
+        function setProducts () {
+            products.value = JSON.parse(localStorage.getItem('products'))
         }
 
         function countTotalPrice () {
-            productsLocalStorage.value.forEach(element => {
+            products.value.forEach(element => {
                 const totalPrice = countTax(element.basePrice)
                 element.totalPrice = totalPrice
             })
@@ -236,7 +218,7 @@ export default {
         function countSubtotal () {
             let basePriceTotal = 0
             let totalPriceSubtotal = 0
-            productsLocalStorage.value.forEach(element => {
+            products.value.forEach(element => {
                 const elementBasePrice = Number(element.basePrice)
                 const elementTotalPrice = Number(element.totalPrice)
                 basePriceTotal += elementBasePrice
@@ -260,7 +242,7 @@ export default {
 
         function cancel (product) {
             product.isEditMode = false
-            productsLocalStorage.value = JSON.parse(localStorage.getItem('products'))
+            products.value = JSON.parse(localStorage.getItem('products'))
             localStorage.setItem('productEditIndex', null)
         }
 
@@ -269,15 +251,15 @@ export default {
                 product.basePrice = parseFloat(product.basePrice.replace(',', '.').replace(' ', '')) // convert commas to dots to avoid NaN. Because you never know if user inputs comma or dot.
             }
             product.isEditMode = false
-            localStorage.setItem('products', JSON.stringify(this.productsLocalStorage))
+            localStorage.setItem('products', JSON.stringify(this.products))
             localStorage.setItem('productEditIndex', null)
-            productsLocalStorage.value = JSON.parse(localStorage.getItem('products'))
+            products.value = JSON.parse(localStorage.getItem('products'))
         }
 
         function remove (product, index) {
-            productsLocalStorage.value.splice(index, 1)
+            products.value.splice(index, 1)
             // product.isEditMode = false
-            localStorage.setItem('products', JSON.stringify(productsLocalStorage.value))
+            localStorage.setItem('products', JSON.stringify(products.value))
             localStorage.setItem('productEditIndex', null)
         }
 
@@ -285,21 +267,17 @@ export default {
             isNewLine.value = true
         }
 
-        function cancelAddNew () {
-          const { setValues } = useForm();
-          setValues({
-            code: '',
-            name: '',
-            basePrice: ''
-          })
+        function next () {
+          localStorage.setItem('products', JSON.stringify(products.value))
+          router.push('/billPage')
         }
 
         createLocalStorage()
-        setProductsLocalStorage()
+        setProducts()
         countTotalPrice()
         countSubtotal()
 
-        watch(productsLocalStorage, () => {
+        watch(products, () => {
             countTotalPrice()
             countSubtotal()
         },
@@ -307,7 +285,7 @@ export default {
         )
 
         return {
-            productsLocalStorage,
+            products,
             isNewLine,
             name,
             nameError,
@@ -319,7 +297,7 @@ export default {
             codeError,
             code,
             createLocalStorage,
-            setProductsLocalStorage,
+            setProducts,
             countTotalPrice,
             countSubtotal,
             countTax,
@@ -328,9 +306,9 @@ export default {
             save,
             remove,
             addNewLine,
-            cancelAddNew,
             submit,
-            cancelNewLine
+            cancelAddNewLine,
+            next
         }
     },
 }
